@@ -244,31 +244,6 @@ def r_loss(y_true, y_pred): #[batch_size x 100 x 3] -> [batch_size]
         min_dist_to_inputs = tf.math.reduce_min(distances,0)
         min_dist_to_outputs = tf.math.reduce_min(distances,1)
         ####################################
-        ####################################                                                                                                                                            
-        #idx_keep_in = tf.where(y_pred_R[0,:]!=0)[:,-1]
-        #t_true_keep_R = tf.gather(y_true_R[0,:], idx_keep_in) #(N, ) where N is # non-zero elements                                                                                      
-        #t_pred_keep_R = tf.gather(y_pred_R[0,:], idx_keep_in)
-        #t_true_keep_G = tf.gather(y_true_G[0,:], idx_keep_in)
-        #t_pred_keep_G = tf.gather(y_pred_G[0,:], idx_keep_in)
-        #t_true_keep_B = tf.gather(y_true_B[0,:], idx_keep_in)
-        #t_pred_keep_B = tf.gather(y_pred_B[0,:], idx_keep_in)
-
-        #t_true_keep_R = tf.reshape(t_true_keep_R, shape=(t_true_keep_R.shape[0], 1)) #(N, 1) where N is # non-zero elements                                                              
-        #t_pred_keep_R = tf.reshape(t_pred_keep_R, shape=(t_pred_keep_R.shape[0], 1))
-        #t_true_keep_G = tf.reshape(t_true_keep_G, shape=(t_true_keep_G.shape[0], 1))
-        #t_pred_keep_G = tf.reshape(t_pred_keep_G, shape=(t_pred_keep_G.shape[0], 1))
-        #t_true_keep_B = tf.reshape(t_true_keep_B, shape=(t_true_keep_B.shape[0], 1))
-        #t_pred_keep_B = tf.reshape(t_pred_keep_B, shape=(t_pred_keep_B.shape[0], 1))
-
-        #t_true_keep_R_conc = tf.concat([t_true_keep_R, t_true_keep_G, t_true_keep_B], axis=-1) #(N, 3) where N is # non-zero elements                                                     
-        #t_pred_keep_R_conc = tf.concat([t_pred_keep_R, t_pred_keep_G, t_pred_keep_B], axis=-1)
-
-        #expand_inputs  = tf.expand_dims(t_true_keep_R_conc, 0)
-        #expand_outputs = tf.expand_dims(t_pred_keep_R_conc, 1)
-
-        #distances = tf.math.reduce_sum(tf.math.squared_difference(expand_outputs, expand_inputs), -1)
-        #min_dist_to_outputs = tf.math.reduce_min(distances,0)
-        ####################################
 
         mse.append(tf.math.reduce_sum(min_dist_to_inputs, 0) + tf.math.reduce_sum(min_dist_to_outputs, 0))
     return mse
