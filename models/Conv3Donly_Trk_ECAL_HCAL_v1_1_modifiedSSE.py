@@ -204,23 +204,11 @@ def r_loss(y_true, y_pred):
     y_true = tf.reshape(y_true, shape=(1, (parts*288*360*3)))
     y_pred = tf.reshape(y_pred, shape=(1, (parts*288*360*3)))
 
-    #idx_keep = []
-    #t_true_keep = []
-    #t_pred_keep = []
-    #for i in range(128): 
-    #    idx_keep.append(tf.where(y_true[i]!=0)[:,-1])
-    #    t_true_keep.append(tf.gather(y_true[i], idx_keep[i]))
-    #    t_pred_keep.append(tf.gather(y_pred[i], idx_keep[i]))
-
     idx_keep = tf.where(y_true[0,:]!=0)[:,-1] #idx_keep shape is (N, ) where N is +ve elements in 128*288*360*3 = 39813120 total elements
     t_true_keep = tf.gather(y_true[0,:], idx_keep) #t_true_keep shape is (N, )
     t_pred_keep = tf.gather(y_pred[0,:], idx_keep) #t_pred_keep shape is (N, )
 
-    #K.square(t_true_keep - t_pred_keep) shape is (N, ). NOTE: shape is not (128, ) as it is for K.sum(K.square(y_true - y_pred), axis = [1,2,3])
-    #I summed N and divided it by 128 because I believe that when the shape is (128, ), they all get added and divided by 128 and get printed while training
     return K.sum(K.square(t_true_keep - t_pred_keep), axis = [0]) / parts
-
-#    return K.sum(K.square(y_true[tf.compat.v2.autograph.experimental.numpy.nonzero(y_true)] - y_pred[tf.compat.v2.autograph.experimental.numpy.nonzero(y_true)]), axis = [1,2,3])
 
 model.compile(optimizer=opt, loss = r_loss)
 
