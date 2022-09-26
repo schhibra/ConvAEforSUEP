@@ -1,4 +1,4 @@
-# Convolutional autoencoders (AEs) for anomaly (non-QCD-like events) detection
+# Convolutional AEs for anomaly (non-QCD-like events) detection
 
 ## Structure of this repository:
    * `pythia8244_with_sueps.tgz`: pythia setup for QCD and SUEP events generation
