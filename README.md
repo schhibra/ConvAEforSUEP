@@ -1,6 +1,7 @@
 # Convolutional autoencoders (AEs) for anomaly (non-QCD-like events) detection
 
 ## Structure of this repository:
+   * `pythia8244_with_sueps.tgz`: pythia setup for QCD and SUEP events generation
    * `gensim/pythia8244`: QCD and SUEP events generation
    * `gensim/Delphes-3.5.0`: DELPHES simulation and HDF5 generator (provides input files)     
    * `models`: different AE models
