@@ -2,8 +2,8 @@
 
 ### Structure of this repository:
    * `pythia8244_with_sueps.tgz`: pythia setup for QCD and SUEP events generation
-   * `gensim/pythia8244`: QCD and SUEP events generation
-   * `gensim/Delphes-3.5.0`: DELPHES simulation and HDF5 generator (provides input files)     
+   * `gensim/pythia8244`: QCD and SUEP events generation and DELPHES simulation (DELPHES setup is in gensim/Delphes-3.5.0)
+   * `gensim/Delphes-3.5.0`: HDF5 generator (provides input files)     
    * `models`: different AE models
    * `scripts`: different loss functions plus plotting scripts
    * `notebooks`: different notebooks for testing and plotting
