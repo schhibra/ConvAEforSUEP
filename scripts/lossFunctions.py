@@ -1,6 +1,8 @@
 parts = 128
 nevts = 4000
 
+# tf.config.run_functions_eagerly(True) # some losses will not work without this
+
 ########################################################################
 ########################################################################
 
@@ -60,6 +62,53 @@ def mod_sse_np(y_true, y_pred): # sum of square of errors for non-zero elements 
     #print("sse ", sse.size)
     #print("sse ", np.sum(sse, axis=0))
     return sse
+
+########################################################################
+########################################################################
+
+ALPHA = 0.8
+GAMMA = 2
+
+def FocalLoss_tf(y_true, y_pred, alpha=ALPHA, gamma=GAMMA):
+
+    focal = []
+    for i in range(parts):
+        y_true_tmp = tf.reshape(y_true[i], shape=(1, (288*360*3)))
+        y_pred_tmp = tf.reshape(y_pred[i], shape=(1, (288*360*3)))
+
+        idx_keep_in = tf.where(y_true_tmp[0,:]>0)[:,-1]
+        y_true_tmp  = tf.gather(y_true_tmp[0,:], idx_keep_in)
+        y_pred_tmp  = tf.gather(y_pred_tmp[0,:], idx_keep_in)
+
+        y_true_tmp = tf.reshape(y_true_tmp, shape=(y_true_tmp.shape[0]))
+        y_pred_tmp = tf.reshape(y_pred_tmp, shape=(y_pred_tmp.shape[0]))
+
+        BCE = K.binary_crossentropy(y_true_tmp, y_pred_tmp)
+        BCE_EXP = K.exp(-BCE)
+        focal.append(alpha * K.pow((1-BCE_EXP), gamma) * BCE)
+    return focal
+
+# or we can do
+# from focal_loss import BinaryFocalLoss
+# model.compile(optimizer=opt, loss = BinaryFocalLoss(gamma=2))
+
+########################################################################
+########################################################################
+
+def IoULoss_tf(targets, inputs, smooth=1e-6):
+    
+    BCE = K.binary_crossentropy(targets, inputs)
+
+    inputs  = tf.reshape(inputs,  shape=((parts*288*360*3), 1))
+    targets = tf.reshape(targets, shape=(1, (parts*288*360*3)))
+
+    intersection = K.sum(K.dot(targets, inputs))
+    total = K.sum(targets) + K.sum(inputs)
+    union = total - intersection
+    
+    IoU = (intersection + smooth) / (union + smooth)
+    return 1 - IoU
+
 
 ########################################################################
 ########################################################################
