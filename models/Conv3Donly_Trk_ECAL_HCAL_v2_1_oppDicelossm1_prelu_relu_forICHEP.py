@@ -1,20 +1,21 @@
 ##########################################
 import setGPU
+
 import os
-###for CPU
-#os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+#os.environ["CUDA_VISIBLE_DEVICES"]="0,1"
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+
 import h5py
 import glob
-import numpy as np
 
+import numpy      as np
 import tensorflow as tf
-
-import matplotlib.pyplot as plt
 
 from tensorflow.compat.v1 import ConfigProto
 from tensorflow.compat.v1 import InteractiveSession
+
 config = ConfigProto()
-#####config.gpu_options.per_process_gpu_memory_fraction = 0.8
+####config.gpu_options.per_process_gpu_memory_fraction = 0.8
 config.gpu_options.allow_growth = True
 session = InteractiveSession(config=config)
 ##########################################
@@ -28,22 +29,22 @@ def get_file_list(path):
     return flist
 
 def read_images_from_file(fname):
-    print("Appending %s" %fname)
+    print("\nAppending %s" %fname)
     with h5py.File(fname,'r') as f:
-        ImageTrk  = np.array(f.get("ImageTrk_PUcorr")[:], dtype=np.float16)
+        ImageTrk  = np.array(f.get("ImageTrk_PUcorr")[:], dtype=np.float32)
         ImageTrk  = ImageTrk.reshape(ImageTrk.shape[0], ImageTrk.shape[1], ImageTrk.shape[2], 1)
 
-        ImageECAL = np.array(f.get("ImageECAL")[:], dtype=np.float16)
-        ImageECAL = ImageTrk.reshape(ImageECAL.shape[0], ImageECAL.shape[1], ImageECAL.shape[2], 1)
+        ImageECAL = np.array(f.get("ImageECAL")[:], dtype=np.float32)
+        ImageECAL = ImageECAL.reshape(ImageECAL.shape[0], ImageECAL.shape[1], ImageECAL.shape[2], 1)
 
-        ImageHCAL = np.array(f.get("ImageHCAL")[:], dtype=np.float16)
-        ImageHCAL = ImageTrk.reshape(ImageHCAL.shape[0], ImageHCAL.shape[1], ImageHCAL.shape[2], 1)
-        
+        ImageHCAL = np.array(f.get("ImageHCAL")[:], dtype=np.float32)
+        ImageHCAL = ImageHCAL.reshape(ImageHCAL.shape[0], ImageHCAL.shape[1], ImageHCAL.shape[2], 1)
+
         Image3D = np.concatenate([ImageTrk, ImageECAL, ImageHCAL], axis=-1)
 
-        Image3D_zero = np.zeros((Image3D.shape[0], 288, 360, 3), dtype=np.float16)
+        Image3D_zero = np.zeros((Image3D.shape[0], 288, 360, 3), dtype=np.float32)
         Image3D_zero[:, 1:287, :, :] += Image3D
-        Image3D_zero = np.divide(Image3D_zero, 2000., dtype=np.float16)
+        Image3D_zero = np.divide(Image3D_zero, 2000., dtype=np.float32)
         return Image3D_zero
         
 def concatenate_by_file_content(Image3D, fname):
@@ -63,86 +64,75 @@ def gen(parts_n, pathindex):
         
         while (len(Image3D_conc) >= parts_n):
             Image3D_part, Image3D_conc = Image3D_conc[:parts_n] , Image3D_conc[parts_n:]
+            #print (" np.sum ", np.sum(Image3D_part[0]))
             #print (" ",Image3D_part.shape, Image3D_conc.shape)
-            yield (Image3D_part, Image3D_part)
-
+            Image3D_part_tf = tf.convert_to_tensor(Image3D_part, dtype=tf.float32)
+            yield (Image3D_part_tf, Image3D_part_tf)
 
 parts = 128
 dataset_train = tf.data.Dataset.from_generator(
     gen, 
     args=[parts, 0],
-    output_types=(tf.float16, tf.float16))
+    output_types=(tf.float32, tf.float32))
 
 dataset_val = tf.data.Dataset.from_generator(
     gen, 
     args=[parts, 1],
-    output_types=(tf.float16, tf.float16))
+    output_types=(tf.float32, tf.float32))
 ##########################################
 
 ##########################################
 # keras imports
 from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Dense, Input, Conv2D, Conv2DTranspose, Dropout, Flatten, Reshape, Lambda, Layer, LeakyReLU
-from tensorflow.keras.layers import AveragePooling2D, BatchNormalization, Activation
+from tensorflow.keras.layers import Input, Conv2D, Conv2DTranspose, PReLU, BatchNormalization, Activation
+#from tensorflow.keras.layers import Dense, Dropout, Flatten, Reshape, Lambda, Layer, LeakyReLU, AveragePooling2D
 from tensorflow.keras import backend as K
-from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau, TerminateOnNaN, ModelCheckpoint
+from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau, TerminateOnNaN
+#from tensorflow.keras.callbacks import ModelCheckpoint
 from tensorflow.keras.optimizers import Adam
 ##########################################
 
 ##########################################
+tf.keras.backend.set_floatx('float32')
+
 img_rows = 288
 img_cols = 360
 img_chns = 3
 
-#wrt v1_1, I changed Conv2D(, (2,2)) to Conv2D(, (3,3))
-#and decoder strides exactly same as encoder
-
 ############ENCODER
 inputImage = Input(shape=(img_rows, img_cols, img_chns))
-x1 = Conv2D(32, (3,3), padding="same")(inputImage)
+x1 = Conv2D(128, (3,3), strides=(3, 3), padding="same")(inputImage)
 x2 = BatchNormalization()(x1)
-x3 = Activation('elu')(x2)
-x4 = AveragePooling2D((3,3), padding="same")(x3)
-x5 = Conv2D(64, (3,3), padding="same")(x4)
-x6 = BatchNormalization()(x5)
-x7 = Activation('elu')(x6)
-x8 = AveragePooling2D((2,2), padding="same")(x7)
-x9 = Conv2D(64, (3,3), padding="same")(x8)
-x10 = BatchNormalization()(x9)
-x11 = Activation('elu')(x10)
-x12 = AveragePooling2D((2,2), padding="same")(x11)
-x13 = Conv2D(64, (3,3), padding="same")(x12)
+x3 = PReLU()(x2)
+x4 = Conv2D(64, (3,3), strides=(2, 2), padding="same")(x3)
+x5 = BatchNormalization()(x4)
+x6 = PReLU()(x5)
+x7 = Conv2D(32, (3,3), strides=(2, 2), padding="same")(x6)
+x8 = BatchNormalization()(x7)
+x9 = PReLU()(x8)
+x10 = Conv2D(16, (3,3), strides=(2, 2), padding="same")(x9)
+x11 = BatchNormalization()(x10)
+x12 = PReLU()(x11)
+x13 = Conv2D(8, (3,3), strides=(2, 3), padding="same")(x12)
 x14 = BatchNormalization()(x13)
-x15 = Activation('elu')(x14)
-x16 = AveragePooling2D((2,2), padding="same")(x15)
-x17 = Conv2D(64, (2,2), padding="same")(x16)
-x18 = BatchNormalization()(x17)
-x19 = Activation('elu')(x18)
-x20 = AveragePooling2D((3,3), padding="same")(x19)
+encoder_output = PReLU()(x14)
 
-x21 = Conv2D(64, (2,2), padding="same")(x20)
+############DECODER                                                                                                                                                                                   
+x15 = Conv2DTranspose(16, (3,3), strides=(2, 3), padding="same")(encoder_output)
+x16 = BatchNormalization()(x15)
+x17 = PReLU()(x16)
+x18 = Conv2DTranspose(32, (3,3), strides=(2, 2), padding="same")(x17)
+x19 = BatchNormalization()(x18)
+x20 = PReLU()(x19)
+x21 = Conv2DTranspose(64, (3,3), strides=(2, 2), padding="same")(x20)
 x22 = BatchNormalization()(x21)
-encoder_output = Activation('elu')(x22)
-
-############DECODER
-x23 = Conv2DTranspose(64, (2,2), strides=(2, 2), padding="same")(encoder_output)
-x24 = BatchNormalization()(x23)
-x25 = Activation('elu')(x24)
-x26 = Conv2DTranspose(64, (2,2), strides=(2, 2), padding="same")(x25)
-x27 = BatchNormalization()(x26)
-x28 = Activation('elu')(x27)
-x29 = Conv2DTranspose(64, (2,2), strides=(2, 2), padding="same")(x28)
-x30 = BatchNormalization()(x29)
-x31 = Activation('elu')(x30)
-x32 = Conv2DTranspose(32, (3,3), strides=(3, 3), padding="same")(x31)
-x33 = BatchNormalization()(x32)
-x34 = Activation('elu')(x33)
-x35 = Conv2DTranspose(img_chns, (3,3), strides=(3, 3), padding="same")(x34)
-x36 = BatchNormalization()(x35)
-output = Activation('relu')(x36)
-
-model = Model(inputs=inputImage, outputs=output)
-encoder = Model(inputs=inputImage, outputs=encoder_output)
+x23 = PReLU()(x22)
+x24 = Conv2DTranspose(128, (3,3), strides=(2, 2), padding="same")(x23)
+x25 = BatchNormalization()(x24)
+x26 = PReLU()(x25)
+x27 = Conv2DTranspose(img_chns, (3,3), strides=(3, 3), padding="same")(x26)
+x28 = BatchNormalization()(x27)
+output = Activation('relu')(x28)
 
 model = Model(inputs=inputImage, outputs=output)
 encoder = Model(inputs=inputImage, outputs=encoder_output)
@@ -174,17 +164,6 @@ m25 = Model(inputs=inputImage, outputs=x25)
 m26 = Model(inputs=inputImage, outputs=x26)
 m27 = Model(inputs=inputImage, outputs=x27)
 m28 = Model(inputs=inputImage, outputs=x28)
-m29 = Model(inputs=inputImage, outputs=x29)
-m30 = Model(inputs=inputImage, outputs=x30)
-m31 = Model(inputs=inputImage, outputs=x31)
-m32 = Model(inputs=inputImage, outputs=x32)
-m33 = Model(inputs=inputImage, outputs=x33)
-m34 = Model(inputs=inputImage, outputs=x34)
-m35 = Model(inputs=inputImage, outputs=x35)
-m36 = Model(inputs=inputImage, outputs=x36)
-#m37 = Model(inputs=inputImage, outputs=x37)
-#m38 = Model(inputs=inputImage, outputs=x38)
-#m39 = Model(inputs=inputImage, outputs=x39)
 
 model.summary()
 encoder.summary()
@@ -193,37 +172,68 @@ m2.summary()
 ##########################################
 
 ##########################################
-LEARNING_RATE = 0.0005 #2 times smaller than default 0.001
-n_epochs = 20
+LEARNING_RATE = 0.001 #default 0.001
+n_epochs = 100
 batch_size = parts
 opt = Adam(lr = LEARNING_RATE)
 
 tf.config.run_functions_eagerly(True)
 
-def r_loss(y_true, y_pred):
-    y_true = tf.reshape(y_true, shape=(1, (parts*288*360*3)))
-    y_pred = tf.reshape(y_pred, shape=(1, (parts*288*360*3)))
+def Diceloss(y_true, y_pred, smooth=1e-6):
 
-    idx_keep = tf.where(y_true[0,:]!=0)[:,-1] #idx_keep shape is (N, ) where N is +ve elements in 128*288*360*3 = 39813120 total elements
-    t_true_keep = tf.gather(y_true[0,:], idx_keep) #t_true_keep shape is (N, )
-    t_pred_keep = tf.gather(y_pred[0,:], idx_keep) #t_pred_keep shape is (N, )
+    dice = []
+    for i in range(parts):
+        y_true_tmp = tf.reshape(y_true[i], shape=(1, (288*360*3)))
+        y_pred_tmp = tf.reshape(y_pred[i], shape=(1, (288*360*3)))
 
-    return K.sum(K.square(t_true_keep - t_pred_keep), axis = [0]) / parts
+        idx_keep_in = tf.where(y_true_tmp[0,:]>0)[:,-1]
+        y_true_tmp  = tf.gather(y_true_tmp[0,:], idx_keep_in)
+        y_pred_tmp  = tf.gather(y_pred_tmp[0,:], idx_keep_in)
 
-model.compile(optimizer=opt, loss = r_loss)
+        y_true_tmp = tf.reshape(y_true_tmp, shape=(1, y_true_tmp.shape[0]))
+        y_pred_tmp = tf.reshape(y_pred_tmp, shape=(y_pred_tmp.shape[0], 1))
 
-version = "v1_1_modifiedloss"
+        intersection = K.sum(K.dot(y_true_tmp, y_pred_tmp))
+        dice.append((K.sum(K.square(y_true[i])) + K.sum(K.square(y_pred[i])) + smooth) / (2 * intersection + smooth) - 1)
+    return dice
+
+def intersection(y_true, y_pred):
+
+    intersection = []
+    for i in range(parts):
+        y_true_tmp = tf.reshape(y_true[i], shape=(1, (288*360*3)))
+        y_pred_tmp = tf.reshape(y_pred[i], shape=(1, (288*360*3)))
+
+        idx_keep_in = tf.where(y_true_tmp[0,:]>0)[:,-1]
+        y_true_tmp  = tf.gather(y_true_tmp[0,:], idx_keep_in)
+        y_pred_tmp  = tf.gather(y_pred_tmp[0,:], idx_keep_in)
+
+        y_true_tmp = tf.reshape(y_true_tmp, shape=(1, y_true_tmp.shape[0]))
+        y_pred_tmp = tf.reshape(y_pred_tmp, shape=(y_pred_tmp.shape[0], 1))
+
+        intersection.append(K.sum(K.dot(y_true_tmp, y_pred_tmp)))
+    return intersection
+
+def sum_y_true(y_true, y_pred):
+    return K.sum(y_true, axis=[1,2,3])
+
+def sum_y_pred(y_true, y_pred):
+    return K.sum(y_pred, axis=[1,2,3])
+
+#model.compile(optimizer=opt, loss = Diceloss), metrics=[intersection, sum_y_true, sum_y_pred, 'accuracy'])
+model.compile(optimizer=opt, loss = DiceLoss)
+
+version = "v2_1_oppDiceloss_prelu_relu_repeat_100"
 if not os.path.exists(version):
-  os.makedirs("./"+version)
+    os.makedirs("./"+version)
+    
+#checkpoint_model = ModelCheckpoint(os.path.join(version, '/weights.h5'), save_weights_only = True, verbose=1)
 
-checkpoint_model = ModelCheckpoint(os.path.join(version, '/weights.h5'), save_weights_only = True, verbose=1)
-
-history = model.fit(dataset_train, epochs=n_epochs, initial_epoch = 0, batch_size=batch_size,# steps_per_epoch=100, 
-                    shuffle=True,
+history = model.fit(dataset_train, epochs=n_epochs, initial_epoch = 0, batch_size=batch_size,
                     validation_data=dataset_val,
                     callbacks = [
-                        checkpoint_model,
-                        EarlyStopping(monitor='val_loss', patience=5, verbose=1, min_delta=0.0001),
+#                        checkpoint_model,
+                        EarlyStopping(monitor='val_loss', patience=10, verbose=1),
                         ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=2, verbose=1),
                         TerminateOnNaN()])
 
@@ -257,17 +267,6 @@ m25.save(version+'/m25_'+version)
 m26.save(version+'/m26_'+version)
 m27.save(version+'/m27_'+version)
 m28.save(version+'/m28_'+version)
-m29.save(version+'/m29_'+version)
-m30.save(version+'/m30_'+version)
-m31.save(version+'/m31_'+version)
-m32.save(version+'/m32_'+version)
-m33.save(version+'/m33_'+version)
-m34.save(version+'/m34_'+version)
-m35.save(version+'/m35_'+version)
-m36.save(version+'/m36_'+version)
-#m37.save(version+'/m37_'+version)
-#m38.save(version+'/m38_'+version)
-#m39.save(version+'/m39_'+version)
 
 np.save(version+'/history_'+version+'.npy', model.history.history)
 ##########################################
