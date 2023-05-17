@@ -110,6 +110,13 @@ class HDF5Generator:
                 compression="gzip",
                 dtype=np.float16)
 
+        hdf5_NTrk_PUcorr = hdf5_dataset.create_dataset(
+                name='NTrk_PUcorr',
+                shape=(self.hdf5_dataset_size, 1),
+                maxshape=(None),
+                compression="gzip",
+                dtype=np.int32)
+
         hdf5_ImageECAL = hdf5_dataset.create_dataset(
                 name='ImageECAL',
                 shape=(self.hdf5_dataset_size, 286, 360),
@@ -219,11 +226,15 @@ class HDF5Generator:
                 p = Track_Phi_PUcorr_full[event_number]
                 v = Track_PT_PUcorr_full[event_number]
                 mask = ((e > self.edges_eta[0]) & (e < self.edges_eta[-1]))
+                #print("e.size", e.size, "p.size", p.size,"v.size", v.size)
                 e, p, v = e[mask], p[mask], v[mask]
+                #if (v.size == 0): 
+                print("after mask: i", i, "e.size", e.size, "p.size", p.size,"v.size", v.size)
                 h, _, _= np.histogram2d(e, p, bins=[286, 360],
                                         range=[[self.edges_eta[0], self.edges_eta[-1]],[self.edges_phi[0], self.edges_phi[-1]]],
                                         weights=v)
                 hdf5_ImageTrk_PUcorr[i] = h
+                hdf5_NTrk_PUcorr[i]     = v.size
 
                 # Get ECAL Tower
                 e = ECALTower_Eta_full[event_number]
@@ -339,6 +350,9 @@ class HDF5Generator:
 
         hdf5_ImageTrk.resize((i, hdf5_ImageTrk.shape[1], hdf5_ImageTrk.shape[2]))
         hdf5_ImageTrk_PUcorr.resize((i, hdf5_ImageTrk_PUcorr.shape[1], hdf5_ImageTrk_PUcorr.shape[2]))
+        print("hdf5_NTrk_PUcorr.shape", hdf5_NTrk_PUcorr.shape)
+        hdf5_NTrk_PUcorr.resize((i, hdf5_NTrk_PUcorr.shape[1]))
+        print("after reshape: hdf5_NTrk_PUcorr.shape", hdf5_NTrk_PUcorr.shape)
         hdf5_ImageECAL.resize((i, hdf5_ImageECAL.shape[1], hdf5_ImageECAL.shape[2]))
         hdf5_ImageHCAL.resize((i, hdf5_ImageHCAL.shape[1], hdf5_ImageHCAL.shape[2]))
         hdf5_ImageTrk_noPU.resize((i, hdf5_ImageTrk_noPU.shape[1], hdf5_ImageTrk_noPU.shape[2]))
