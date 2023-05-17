@@ -350,9 +350,7 @@ class HDF5Generator:
 
         hdf5_ImageTrk.resize((i, hdf5_ImageTrk.shape[1], hdf5_ImageTrk.shape[2]))
         hdf5_ImageTrk_PUcorr.resize((i, hdf5_ImageTrk_PUcorr.shape[1], hdf5_ImageTrk_PUcorr.shape[2]))
-        print("hdf5_NTrk_PUcorr.shape", hdf5_NTrk_PUcorr.shape)
         hdf5_NTrk_PUcorr.resize((i, hdf5_NTrk_PUcorr.shape[1]))
-        print("after reshape: hdf5_NTrk_PUcorr.shape", hdf5_NTrk_PUcorr.shape)
         hdf5_ImageECAL.resize((i, hdf5_ImageECAL.shape[1], hdf5_ImageECAL.shape[2]))
         hdf5_ImageHCAL.resize((i, hdf5_ImageHCAL.shape[1], hdf5_ImageHCAL.shape[2]))
         hdf5_ImageTrk_noPU.resize((i, hdf5_ImageTrk_noPU.shape[1], hdf5_ImageTrk_noPU.shape[2]))
